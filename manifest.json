@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Reddit Quiet",
-  "version": "1.1.0",
-  "description": "Hide Reddit's notification bell, unread badge, tab-title counter, and optionally Chat, Inbox, or Create Post. Zero tracking, zero data. Toggleable.",
+  "version": "1.1.1",
+  "description": "Hide Reddit's notification bell, unread badge, and (N) tab counter. Optional Chat, Inbox, Create Post toggles. Zero tracking.",
   "permissions": ["storage"],
   "host_permissions": [],
   "action": {

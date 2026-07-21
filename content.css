@@ -2,42 +2,72 @@
  * Each hide-rule is gated on a class on <html> (document.documentElement).
  * content.js adds/removes these classes based on chrome.storage.sync settings.
  *
- * Why html-classes instead of bare selectors:
- *   - lets the popup toggle features on/off WITHOUT re-injecting CSS or reloading the page
- *   - keeps "what to hide" declarative (here in CSS) and "what's enabled" stateful (in JS)
- *
- * Why aria-label selectors:
- *   Reddit's CSS classes are randomized hashes that change on every redesign.
- *   aria-label and data-testid are stable, so these rules survive UI changes.
+ * Selector strategy:
+ *   1. All aria-label selectors are scoped to the global top bar via ancestor
+ *      patterns (role="banner", [data-testid="top-nav-bar"]). Without this,
+ *      [aria-label*="notification" i] would ALSO hide the Settings → Notifications
+ *      tab and any sidebar/footer link mentioning notifications.
+ *   2. The :has() rule is isolated inside @supports so it can't poison the
+ *      other selectors on browsers that don't support :has() (Chrome <105).
+ *   3. aria-label/data-testid are stable across Reddit redesigns; CSS classes
+ *      are randomized hashes and avoided on purpose.
+ */
+
+/* ---- Top-bar scope anchors (used by every rule below) ----
+ * Reddit's global top bar in new design (shreddit web components) is one of:
+ *   - <header role="banner">
+ *   - <div data-testid="top-nav-bar">
+ *   - <nav aria-label="Global navigation">
+ * If Reddit changes these in a future redesign, this is the place to update.
  */
 
 /* ---- Core: Notifications bell + its red unread badge ---- */
-html.rq-hide-bell [aria-label*="notification" i]:not([aria-label*="chat" i]),
-html.rq-hide-bell [data-testid="notifications"],
-html.rq-hide-bell [data-testid="notification-bell"],
-html.rq-hide-bell faceplate-dropdown-menu:has(> [aria-label*="notification" i]),
-html.rq-hide-bell a[href="/notifications/"][aria-label*="notification" i] {
+html.rq-hide-bell [role="banner"] [aria-label="Notifications" i],
+html.rq-hide-bell [role="banner"] [data-testid="notifications"],
+html.rq-hide-bell [role="banner"] [data-testid="notification-bell"],
+html.rq-hide-bell [data-testid="top-nav-bar"] [aria-label="Notifications" i],
+html.rq-hide-bell [data-testid="top-nav-bar"] [data-testid="notifications"],
+html.rq-hide-bell [data-testid="top-nav-bar"] [data-testid="notification-bell"] {
   display: none !important;
 }
 
-/* ---- Optional: Chat icon + its unread dot ---- */
-html.rq-hide-chat [aria-label*="chat" i],
-html.rq-hide-chat [data-testid="chat"],
-html.rq-hide-chat [data-testid="open-chat"] {
+/* Same idea, isolated for browsers without :has() support (Chrome <105).
+   Putting :has() in its own rule block prevents one unsupported selector
+   from invalidating the whole bell rule above. */
+@supports selector(:has(*)) {
+  html.rq-hide-bell [role="banner"] faceplate-dropdown-menu:has(> [aria-label="Notifications" i]),
+  html.rq-hide-bell [data-testid="top-nav-bar"] faceplate-dropdown-menu:has(> [aria-label="Notifications" i]) {
+    display: none !important;
+  }
+}
+
+/* ---- Optional: Chat icon + its unread dot (top bar only) ---- */
+html.rq-hide-chat [role="banner"] [aria-label*="chat" i],
+html.rq-hide-chat [role="banner"] [data-testid="chat"],
+html.rq-hide-chat [role="banner"] [data-testid="open-chat"],
+html.rq-hide-chat [data-testid="top-nav-bar"] [aria-label*="chat" i],
+html.rq-hide-chat [data-testid="top-nav-bar"] [data-testid="chat"],
+html.rq-hide-chat [data-testid="top-nav-bar"] [data-testid="open-chat"] {
   display: none !important;
 }
 
-/* ---- Optional: Inbox / Messages icon ---- */
-html.rq-hide-inbox [aria-label*="inbox" i],
-html.rq-hide-inbox [aria-label*="messages" i],
-html.rq-hide-inbox a[href="/message/inbox/"],
-html.rq-hide-inbox a[href="/message/unread/"] {
+/* ---- Optional: Inbox / Messages icon (top bar only) ---- */
+html.rq-hide-inbox [role="banner"] [aria-label*="inbox" i],
+html.rq-hide-inbox [role="banner"] [aria-label*="messages" i],
+html.rq-hide-inbox [role="banner"] a[href="/message/inbox/"],
+html.rq-hide-inbox [role="banner"] a[href="/message/unread/"],
+html.rq-hide-inbox [data-testid="top-nav-bar"] [aria-label*="inbox" i],
+html.rq-hide-inbox [data-testid="top-nav-bar"] [aria-label*="messages" i],
+html.rq-hide-inbox [data-testid="top-nav-bar"] a[href="/message/inbox/"],
+html.rq-hide-inbox [data-testid="top-nav-bar"] a[href="/message/unread/"] {
   display: none !important;
 }
 
-/* ---- Optional: "Create Post" button in the top bar ---- */
-html.rq-hide-create-post [aria-label*="create post" i],
-html.rq-hide-create-post a[href="/submit/"] {
+/* ---- Optional: "Create Post" button (top bar only — NOT sidebar submit links) ---- */
+html.rq-hide-create-post [role="banner"] [aria-label*="create post" i],
+html.rq-hide-create-post [role="banner"] a[href="/submit/"],
+html.rq-hide-create-post [data-testid="top-nav-bar"] [aria-label*="create post" i],
+html.rq-hide-create-post [data-testid="top-nav-bar"] a[href="/submit/"] {
   display: none !important;
 }
 

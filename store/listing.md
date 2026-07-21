@@ -41,11 +41,11 @@ Reddit Quiet is a content-script-only extension. It does NOT collect, transmit, 
 
 🛠️ HOW IT WORKS
 
-Hides elements using their stable ARIA-label attributes (`aria-label="Notifications"` etc.) rather than randomized CSS classes — so it survives Reddit redesigns. Strips the tab-title counter via a lightweight `MutationObserver` on `<title>`. No background service worker, no network requests, no DOM scraping of your content.
+Hides elements using their stable ARIA-label attributes (`aria-label="Notifications"` etc.) scoped to the top navigation bar — so it survives Reddit redesigns without touching anything else on the page. Strips the tab-title counter via a lightweight `MutationObserver` on `<title>`. No background service worker, no network requests, no DOM scraping of your content.
 
 📂 OPEN SOURCE
 
-Full source code, README, and privacy policy are available on GitHub. Every line is auditable; the extension is well under 200 lines total.
+Full source code, README, and privacy policy are available on GitHub. The extension is small enough to read end-to-end in a single sitting.
 
 📌 COMPATIBILITY
 

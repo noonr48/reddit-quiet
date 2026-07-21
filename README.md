@@ -42,17 +42,19 @@ Search for "Reddit Quiet" or visit the listing URL.
 
 ## How it works
 
-Reddit Quiet uses **stable ARIA-label selectors** (`[aria-label*="notification" i]`) rather than randomized CSS classes, so it survives Reddit redesigns that change the underlying class hashes. The tab-title counter is stripped via a lightweight `MutationObserver` on `<title>`.
+Reddit Quiet uses **stable ARIA-label selectors** (`[aria-label="Notifications"]`) scoped to the top navigation bar (`[role="banner"]`, `[data-testid="top-nav-bar"]`), rather than randomized CSS classes. This way it survives Reddit redesigns that change the underlying class hashes, and it doesn't accidentally hide sidebar links, footer links, or Settings tabs that happen to mention "notification".
 
-The extension is **under 200 lines of code** across 5 files. Read every line — there's nothing to hide.
+The tab-title counter is stripped via a lightweight `MutationObserver` on `<title>`. The observer automatically re-attaches if Reddit replaces `<title>` during SPA navigation.
+
+The extension is **small enough to read end-to-end in a single sitting** — about 500 lines including comments and blank lines across 6 files. Read every line — there's nothing to hide.
 
 | File | Job |
 |---|---|
 | `manifest.json` | MV3 manifest; only `storage` permission |
-| `content.css` | Hides elements via html-class-gated rules |
-| `content.js` | Loads settings, applies html classes, strips title counter, listens for live changes |
+| `content.css` | Hides elements via html-class-gated rules, scoped to the top bar |
+| `content.js` | Loads settings, applies html classes, title observer, listens for live changes |
 | `popup/popup.html` | Toggle UI structure |
-| `popup/popup.css` | Popup styling |
+| `popup/popup.css` | Popup styling with light/dark mode |
 | `popup/popup.js` | Wires toggles to `chrome.storage.sync` |
 
 ## Privacy

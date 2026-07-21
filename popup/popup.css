@@ -196,3 +196,7 @@ html, body {
 .rq-footer a:hover {
   text-decoration: underline;
 }
+
+.rq-muted-link {
+  color: var(--rq-muted);
+}

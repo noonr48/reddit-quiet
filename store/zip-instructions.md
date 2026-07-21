@@ -52,10 +52,13 @@ Google requires a publicly-accessible privacy policy URL. Three options:
 
 1. Create a new public GitHub repo named `reddit-quiet`
 2. Push the contents of this folder to it (Steps 6–8 below cover this)
-3. In the repo, go to **Settings → Pages**
-4. Source: **Deploy from a branch**, Branch: `main`, Folder: `/store`
-5. Wait ~1 min for the URL to activate
-6. Your privacy policy URL becomes: `https://<your-username>.github.io/reddit-quiet/privacy-policy`
+3. Copy `store/privacy-policy.md` to `docs/privacy-policy.md` (rename the file extension to `.html` or add a Jekyll front-matter block — GitHub Pages renders `.md` if it has front-matter, otherwise it serves raw)
+4. In the repo, go to **Settings → Pages**
+5. Source: **Deploy from a branch**, Branch: `main`, Folder: `/docs`
+6. Wait ~1 min for the URL to activate
+7. Your privacy policy URL becomes: `https://<your-username>.github.io/reddit-quiet/privacy-policy.html` (or `.md` if you added front-matter)
+
+If you don't want to mess with GitHub Pages, **Option B** (gist) is faster.
 
 **Option B — gist** (quicker, less polished)
 
@@ -104,7 +107,7 @@ Add a brief description of the extension to the screenshots (under 100 chars eac
 | "Duplicate" | We have 5 toggleable features vs the existing one's zero — popup UI screenshot is our proof |
 | "Code readability" | Code is hand-written, no minification |
 
-If Google flags as duplicate, reply in the developer dashboard with: *"Our extension includes a popup UI with 5 toggleable features (Notifications bell, Tab title counter, Chat, Inbox, Create Post) plus cross-device settings sync via chrome.storage.sync. The similar extension [hhfbdablfninhimbgcchodfocfnmpame] has no UI and no settings — it is hardcoded to one behavior. Attached screenshot shows our popup."* — attach `screenshots/3-popup.png`.
+If Google flags as duplicate, reply in the developer dashboard with: *"Our extension includes a popup UI with 5 toggleable features (Notifications bell, Tab title counter, Chat, Inbox, Create Post) plus cross-device settings sync via chrome.storage.sync. The similar existing extensions have no popup UI and no per-feature settings — they are hardcoded to one behavior. Attached screenshot shows our popup."* — attach `screenshots/3-popup.png`.
 
 ## Updating later
 

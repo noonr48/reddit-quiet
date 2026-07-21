@@ -40,7 +40,7 @@ In Chrome's local browser profile and (if you're signed in to Chrome) in your Go
 
 ## What the extension does on reddit.com pages
 
-A small content script (under 80 lines) runs on `*.reddit.com` pages and does three things:
+A small content script runs on `*.reddit.com` pages and does three things:
 
 1. Adds CSS classes to the page's `<html>` element based on your toggle settings (e.g. `<html class="rq-hide-bell">`)
 2. A matching CSS file uses those classes to hide selected elements (the notification bell, etc.) via `display: none`
@@ -66,8 +66,8 @@ If the extension ever adds functionality that touches user data, this policy wil
 
 ## Contact
 
-Open an issue on the [GitHub repository](https://github.com/) to ask any question about this policy.
+Open an issue on the GitHub repository (link from the Chrome Web Store listing, or in the extension's popup) to ask any question about this policy.
 
 ## Source code
 
-The complete, auditable source is available on GitHub. The entire extension is under 200 lines of code across 5 files.
+The complete, auditable source is available on GitHub. The extension is small enough to read end-to-end in a single sitting — content script, popup, and CSS together total around 500 lines including comments and blank lines.
