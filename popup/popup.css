@@ -1,0 +1,198 @@
+/* === Reddit Quiet — popup.css ===
+ * Clean minimal popup. Width fixed at 320px (Chrome popup convention).
+ * Uses system font stack + OS-native colors for instant load.
+ */
+
+:root {
+  --rq-bg: #ffffff;
+  --rq-fg: #1a1a1b;
+  --rq-muted: #6b7280;
+  --rq-border: #e5e7eb;
+  --rq-accent: #ff4500;            /* reddit orange */
+  --rq-accent-hover: #e63d00;
+  --rq-switch-off: #d1d5db;
+  --rq-row-hover: #f9fafb;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --rq-bg: #1a1a1b;
+    --rq-fg: #f0f0f0;
+    --rq-muted: #9ca3af;
+    --rq-border: #2d2d2f;
+    --rq-row-hover: #232324;
+  }
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  width: 320px;
+  background: var(--rq-bg);
+  color: var(--rq-fg);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+/* ---- Header ---- */
+.rq-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--rq-border);
+}
+
+.rq-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  background: var(--rq-accent);
+  color: #fff;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.rq-titles h1 {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.rq-titles p {
+  font-size: 12px;
+  color: var(--rq-muted);
+  margin-top: 1px;
+}
+
+/* ---- Toggle list ---- */
+.rq-toggles {
+  padding: 6px 0;
+}
+
+.rq-row {
+  display: flex;
+  align-items: center;
+  padding: 9px 16px;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.08s ease;
+}
+
+.rq-row:hover {
+  background: var(--rq-row-hover);
+}
+
+.rq-row-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.rq-row-title {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.rq-row-sub {
+  display: block;
+  font-size: 11px;
+  color: var(--rq-muted);
+  margin-top: 1px;
+}
+
+.rq-divider {
+  height: 1px;
+  background: var(--rq-border);
+  margin: 4px 16px;
+}
+
+/* ---- Switch (the visual knob — the checkbox is hidden) ---- */
+.rq-row input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  width: 0;
+  height: 0;
+}
+
+.rq-switch {
+  position: relative;
+  width: 34px;
+  height: 20px;
+  background: var(--rq-switch-off);
+  border-radius: 999px;
+  transition: background-color 0.15s ease;
+  flex-shrink: 0;
+  margin-left: 10px;
+}
+
+.rq-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.15s ease;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+}
+
+.rq-row input:checked + .rq-switch {
+  background: var(--rq-accent);
+}
+
+.rq-row input:checked + .rq-switch::after {
+  transform: translateX(14px);
+}
+
+.rq-row input:focus-visible + .rq-switch {
+  outline: 2px solid var(--rq-accent);
+  outline-offset: 2px;
+}
+
+/* ---- Footer ---- */
+.rq-footer {
+  padding: 10px 16px 12px;
+  border-top: 1px solid var(--rq-border);
+  font-size: 11px;
+  color: var(--rq-muted);
+}
+
+.rq-footer p {
+  margin: 0;
+}
+
+.rq-footer-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.rq-dot {
+  width: 6px;
+  height: 6px;
+  background: #22c55e;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.rq-footer a {
+  color: var(--rq-accent);
+  text-decoration: none;
+}
+
+.rq-footer a:hover {
+  text-decoration: underline;
+}

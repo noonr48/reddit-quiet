@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Reddit Quiet</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header class="rq-header">
+    <div class="rq-logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+        <line x1="2" y1="2" x2="22" y2="22"></line>
+      </svg>
+    </div>
+    <div class="rq-titles">
+      <h1>Reddit Quiet</h1>
+      <p>Choose what to hide</p>
+    </div>
+  </header>
+
+  <main class="rq-toggles">
+    <label class="rq-row">
+      <span class="rq-row-text">
+        <span class="rq-row-title">Notifications bell</span>
+        <span class="rq-row-sub">The 🔔 icon + its red unread badge</span>
+      </span>
+      <input type="checkbox" data-setting="hideBell" />
+      <span class="rq-switch" aria-hidden="true"></span>
+    </label>
+
+    <label class="rq-row">
+      <span class="rq-row-text">
+        <span class="rq-row-title">Tab title counter</span>
+        <span class="rq-row-sub">Strip "(5)" from the browser tab</span>
+      </span>
+      <input type="checkbox" data-setting="hideTabCounter" />
+      <span class="rq-switch" aria-hidden="true"></span>
+    </label>
+
+    <div class="rq-divider"></div>
+
+    <label class="rq-row">
+      <span class="rq-row-text">
+        <span class="rq-row-title">Chat icon</span>
+        <span class="rq-row-sub">The 💬 icon in the top bar</span>
+      </span>
+      <input type="checkbox" data-setting="hideChat" />
+      <span class="rq-switch" aria-hidden="true"></span>
+    </label>
+
+    <label class="rq-row">
+      <span class="rq-row-text">
+        <span class="rq-row-title">Inbox / Messages</span>
+        <span class="rq-row-sub">The ✉️ mail icon</span>
+      </span>
+      <input type="checkbox" data-setting="hideInbox" />
+      <span class="rq-switch" aria-hidden="true"></span>
+    </label>
+
+    <label class="rq-row">
+      <span class="rq-row-text">
+        <span class="rq-row-title">Create Post button</span>
+        <span class="rq-row-sub">The "Create Post" pill in the top bar</span>
+      </span>
+      <input type="checkbox" data-setting="hideCreatePost" />
+      <span class="rq-switch" aria-hidden="true"></span>
+    </label>
+  </main>
+
+  <footer class="rq-footer">
+    <p>Settings sync across your devices. Reddit tab updates instantly.</p>
+    <p class="rq-footer-meta">
+      <span class="rq-dot" aria-hidden="true"></span>
+      Zero data collected ·
+      <a href="https://github.com/" target="_blank" rel="noopener" id="rq-source-link">Source &amp; privacy policy</a>
+    </p>
+  </footer>
+
+  <script src="popup.js"></script>
+</body>
+</html>
