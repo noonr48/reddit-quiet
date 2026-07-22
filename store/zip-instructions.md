@@ -24,13 +24,13 @@ You only do this once. Future extensions on the same account skip this step.
 The zip is already built for you at:
 
 ```
-/home/<user>/Desktop/reddit-quiet/reddit-quiet-v1.1.0.zip
+<your-clone-path>/reddit-quiet-v1.1.0.zip
 ```
 
 If you've changed files since I built it, rebuild:
 
 ```bash
-cd /home/<user>/Desktop/reddit-quiet
+cd <your-clone-path>/reddit-quiet
 rm -f reddit-quiet-v1.1.0.zip
 zip -r reddit-quiet-v1.1.0.zip manifest.json content.css content.js popup/ icons/
 # Do NOT include: store/, screenshots/, README.md, LICENSE, .git/, .gitignore
