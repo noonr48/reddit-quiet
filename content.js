@@ -1,17 +1,20 @@
 // === Reddit Quiet — content.js ===
-// Applies the user's popup-toggleable settings to the page:
-//   1. Adds/removes html.rq-* classes based on chrome.storage.sync settings.
-//   2. Strips the "(N) " unread count that Reddit prepends to document.title.
+// Hides Reddit's notification bell, unread badge, chat, inbox, and/or Create Post.
 //
-// Runs at document_start so html classes land on <html> before the bell paints.
-// The actual CSS hide is then declarative (see content.css).
+// CRITICAL ARCHITECTURE NOTE:
+// Reddit renders most of its top bar inside <shreddit-*> custom elements with
+// SHADOW DOM. CSS selectors from the document root CANNOT pierce shadow
+// boundaries. So content.css alone WILL NOT hide the bell. This file does the
+// heavy lifting:
+//   1. Walks every element AND its shadowRoot recursively
+//   2. Matches elements by aria-label, href, data-testid, className
+//   3. Applies inline display:none (which works inside shadow roots)
+//   4. Nukes small red circles at the top of the page (the unread badge),
+//      detected by size + color (this is how the existing "Reddit Notification
+//      Remover" extension does it — proven approach)
+//   5. Re-runs every 2s + on DOM mutations + on SPA navigation
 //
-// Note on flash-of-bell: classes are applied in the async storage.sync.get
-// callback. In practice the storage read is sub-millisecond and the bell paints
-// much later, so flash is imperceptible — but it is not strictly zero. The
-// synchronous fallback below applies html.rq-hide-bell + html.rq-hide-tab-counter
-// immediately at script load (matching the defaults); the callback then
-// removes them if the user has turned those features off.
+// Tab-title (N) counter is also stripped here.
 
 (() => {
   'use strict';
@@ -29,78 +32,187 @@
     hideChat: 'rq-hide-chat',
     hideInbox: 'rq-hide-inbox',
     hideCreatePost: 'rq-hide-create-post',
-    // hideTabCounter has no CSS class — handled by the title-stripper below.
   };
 
-  // ---- Synchronous default-class application (zero-flash for the default case) ----
-  // The classes for DEFAULTS=true features go on <html> RIGHT NOW. If the user has
-  // turned any of them off, the storage.sync.get callback below will remove them.
+  let settings = { ...DEFAULTS };
   const html = document.documentElement;
-  for (const key of Object.keys(CLASS_MAP)) {
-    if (DEFAULTS[key]) html.classList.add(CLASS_MAP[key]);
-  }
-  // Module-scope cache of the tab-counter setting, so the title observer doesn't
-  // have to fire a storage.sync.get IPC on every title mutation.
-  let hideTabCounter = DEFAULTS.hideTabCounter;
 
-  // ---- Apply html.rq-* classes from a settings object ----
-  function applyClasses(settings) {
-    hideTabCounter = !!settings.hideTabCounter;
+  // ---- Patterns: how to identify each feature's elements ----
+  // Each pattern lists substrings to match against aria-label/href/testid/class.
+  const PATTERNS = {
+    hideBell: {
+      ariaLabel: ['notification', 'benachrichtigung', 'bell', 'inbox'],  // 'inbox' because Reddit labels it "Inbox" sometimes
+      href: ['/notifications', '/notification/', '/activity', '/message/inbox'],
+      testid: ['notification', 'inbox-count'],
+      className: ['notification-count', 'notification-dot', 'notification-badge'],
+    },
+    hideChat: {
+      ariaLabel: ['chat'],
+      href: ['/chat/'],
+      testid: ['chat', 'open-chat'],
+      className: ['chat-badge', 'chat-unread'],
+    },
+    hideInbox: {
+      ariaLabel: ['inbox', 'messages', 'mail'],
+      href: ['/message/inbox', '/message/unread'],
+      testid: ['inbox'],
+      className: ['inbox-badge'],
+    },
+    hideCreatePost: {
+      ariaLabel: ['create post', 'create submission'],
+      href: ['/submit/'],
+      testid: ['create-post', 'create-submission'],
+      className: [],
+    },
+  };
+
+  // ---- Match an element against any enabled feature ----
+  function featureForElement(el) {
+    const label = (el.getAttribute && (el.getAttribute('aria-label') || '') || '').toLowerCase();
+    const href = (el.getAttribute && (el.getAttribute('href') || '') || '').toLowerCase();
+    const testid = (el.getAttribute && (el.getAttribute('data-testid') || '') || '').toLowerCase();
+    let clsStr = '';
+    try {
+      const c = el.className;
+      clsStr = (typeof c === 'string' ? c : (c && c.baseVal) || '').toLowerCase();
+    } catch (e) {}
+
+    for (const [feature, pats] of Object.entries(PATTERNS)) {
+      if (!settings[feature]) continue;
+      if (pats.ariaLabel && pats.ariaLabel.some(p => label.includes(p))) return feature;
+      if (pats.href && pats.href.some(p => href.includes(p))) return feature;
+      if (pats.testid && pats.testid.some(t => testid.includes(t))) return feature;
+      if (pats.className && pats.className.some(c => clsStr.includes(c))) return feature;
+    }
+    return null;
+  }
+
+  // ---- Walk every element + their shadow roots recursively ----
+  function* allElements(root) {
+    if (!root || !root.querySelectorAll) return;
+    for (const el of root.querySelectorAll('*')) {
+      yield el;
+      if (el.shadowRoot) {
+        yield* allElements(el.shadowRoot);
+      }
+    }
+  }
+
+  // ---- Hide one element via inline style ----
+  function hide(el) {
+    if (el.style) {
+      el.style.setProperty('display', 'none', 'important');
+    }
+  }
+
+  // ---- Detect & hide small red/orange badge dots near the top of the page ----
+  // Heuristic: ≤32px square, in the top 100px of viewport, with red/orange bg.
+  // This is the "1" unread counter the user sees. Mirrors the proven approach
+  // from the existing "Reddit Notification Remover" extension.
+  function isBadgeDot(el) {
+    try {
+      const rect = el.getBoundingClientRect();
+      if (rect.width <= 0 || rect.width > 32) return false;
+      if (rect.height <= 0 || rect.height > 32) return false;
+      if (rect.top > 100) return false;
+      const bg = getComputedStyle(el).backgroundColor;
+      // Match red/orange-ish: rgb(180-255, 0-90, 0-90)
+      return /^rgb\(\s*(1[89][0-9]|2[0-5][0-9])\s*,\s*[0-9]?\d\s*,\s*[0-9]?\d\s*\)$/.test(bg);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function nukeBadgeDots(root) {
+    for (const el of allElements(root)) {
+      if (isBadgeDot(el)) hide(el);
+    }
+  }
+
+  // ---- Main cleanup pass ----
+  function cleanup() {
+    // Apply html.rq-* classes (so content.css's document-root rules also fire)
     for (const [key, cls] of Object.entries(CLASS_MAP)) {
       html.classList.toggle(cls, !!settings[key]);
     }
-  }
 
-  // ---- Strip "(N) " from document.title ----
-  const TITLE_RE = /^\((\d+\+?)\)\s*/;
-  function cleanTitle() {
-    if (TITLE_RE.test(document.title)) {
-      document.title = document.title.replace(TITLE_RE, '');
+    // Walk all elements + shadow roots, hide matches
+    for (const el of allElements(document)) {
+      if (featureForElement(el)) hide(el);
+    }
+
+    // Nuke red badge dots if any of the icon-hiding features are on
+    if (settings.hideBell || settings.hideChat || settings.hideInbox) {
+      nukeBadgeDots(document);
+    }
+
+    // Strip (N) from title
+    if (settings.hideTabCounter) {
+      const TITLE_RE = /^\((\d+\+?)\)\s*/;
+      if (TITLE_RE.test(document.title)) {
+        document.title = document.title.replace(TITLE_RE, '');
+      }
     }
   }
 
-  // ---- Load settings, then keep them in sync ----
-  chrome.storage.sync.get(DEFAULTS, applyClasses);
-  chrome.storage.onChanged.addListener((changes, area) => {
-    if (area !== 'sync') return;
-    chrome.storage.sync.get(DEFAULTS, applyClasses);
-    // NOTE on hideTabCounter OFF-toggle: we don't restore the (N) prefix here.
-    // Reddit's own JS will re-write document.title on its next notification poll
-    // (typically within seconds), restoring the counter naturally. Forcing a
-    // restore ourselves would require knowing the original count, which we
-    // deliberately don't track.
+  // ---- Schedule helpers ----
+  let pending = false;
+  function scheduleCleanup() {
+    if (pending) return;
+    pending = true;
+    // Use requestAnimationFrame for visual changes; fallback to microtask
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => { pending = false; cleanup(); });
+    } else {
+      Promise.resolve().then(() => { pending = false; cleanup(); });
+    }
+  }
+
+  // ---- Init: load settings + wire listeners ----
+  chrome.storage.sync.get(DEFAULTS, (s) => {
+    settings = { ...DEFAULTS, ...s };
+
+    // Initial + staggered runs (catch SPA render waves)
+    cleanup();
+    setTimeout(cleanup, 100);
+    setTimeout(cleanup, 500);
+    setTimeout(cleanup, 1500);
+    setTimeout(cleanup, 3000);
+
+    // Ongoing schedule — catches re-renders, notification polls, etc.
+    setInterval(cleanup, 2000);
   });
 
-  // ---- Title observer: re-attaches if Reddit replaces <title> ----
-  // We watch document.documentElement (which is stable) for subtree mutations
-  // and (re)attach a characterData observer to whichever <title> exists.
-  let currentTitle = null;
-  let titleObs = null;
+  // Live-apply popup changes (storage sync propagates across tabs)
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'sync') return;
+    chrome.storage.sync.get(DEFAULTS, (s) => {
+      settings = { ...DEFAULTS, ...s };
+      cleanup();
+    });
+  });
 
-  function watchTitle(titleEl) {
-    if (titleEl === currentTitle) return;
-    if (titleObs) titleObs.disconnect();
-    titleObs = new MutationObserver(() => {
-      if (hideTabCounter) cleanTitle();
-    });
-    titleObs.observe(titleEl, {
-      childList: true,
-      subtree: true,
-      characterData: true,
-    });
-    currentTitle = titleEl;
-    if (hideTabCounter) cleanTitle();
+  // Re-run on any DOM mutation (Reddit SPA re-renders constantly)
+  const obs = new MutationObserver(() => scheduleCleanup());
+  // Defer observation until document.documentElement exists (should already at document_start)
+  const startObs = () => {
+    obs.observe(document.documentElement, { childList: true, subtree: true });
+  };
+  if (document.documentElement) {
+    startObs();
+  } else {
+    new MutationObserver((_, o) => {
+      if (document.documentElement) { startObs(); o.disconnect(); }
+    }).observe(document, { childList: true });
   }
 
-  function findAndWatchTitle() {
-    const t = document.querySelector('title');
-    if (t) watchTitle(t);
-  }
-
-  // Watch for <title> appearing OR being replaced (SPA route changes can do this).
-  const docObs = new MutationObserver(findAndWatchTitle);
-  docObs.observe(document.documentElement, { childList: true, subtree: true });
-
-  // Initial attempt (title may already exist at document_start in some flows).
-  findAndWatchTitle();
+  // Re-run on SPA navigation (URL change without page reload)
+  let lastUrl = location.href;
+  setInterval(() => {
+    if (location.href !== lastUrl) {
+      lastUrl = location.href;
+      setTimeout(cleanup, 200);
+      setTimeout(cleanup, 1000);
+    }
+  }, 500);
 })();
