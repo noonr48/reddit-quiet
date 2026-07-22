@@ -26,13 +26,7 @@ Five toggleable options in a clean popup:
 
 Settings sync across your devices via Chrome's built-in sync. Changes apply instantly to any open Reddit tab.
 
-## Install
-
-### From the Chrome Web Store *(once published)*
-
-Search for "Reddit Quiet" or visit the listing URL.
-
-### From source (developer / load-unpacked)
+## Install (load unpacked)
 
 1. Open `chrome://extensions`
 2. Enable **Developer mode** (top-right toggle)
@@ -42,24 +36,31 @@ Search for "Reddit Quiet" or visit the listing URL.
 
 ## How it works
 
-Reddit Quiet uses **stable ARIA-label selectors** (`[aria-label="Notifications"]`) scoped to the top navigation bar (`[role="banner"]`, `[data-testid="top-nav-bar"]`), rather than randomized CSS classes. This way it survives Reddit redesigns that change the underlying class hashes, and it doesn't accidentally hide sidebar links, footer links, or Settings tabs that happen to mention "notification".
+Reddit renders its top bar inside `<shreddit-*>` custom elements with **shadow DOM**. CSS selectors from the document root can't pierce the shadow boundary, so a pure-CSS approach won't work.
 
-The tab-title counter is stripped via a lightweight `MutationObserver` on `<title>`. The observer automatically re-attaches if Reddit replaces `<title>` during SPA navigation.
+Reddit Quiet uses a hybrid strategy:
+
+1. **content.css** — broad unscoped selectors for any bell-related elements that live at the document root (some badge variants are hoisted out of shadow DOM)
+2. **content.js** — walks every element AND its `shadowRoot` recursively, applying inline `display: none` to matches. Identifies elements by `id`, `class`, `aria-label`, `href`, `data-testid`, and `icon-name` attributes (stable across redesigns, unlike the randomized CSS class hashes)
+3. **Red-badge nuking** — detects small red/orange circles at the top of the page (the unread count) by size + color, since they have no stable attributes
+4. **Re-runs every 2s + on DOM mutations + on SPA navigation** — Reddit re-renders the top bar constantly; a one-shot hide wouldn't survive 30 seconds
+
+The tab-title `(N)` counter is stripped via a `MutationObserver` on `<title>`.
 
 The extension is **small enough to read end-to-end in a single sitting** — about 500 lines including comments and blank lines across 6 files. Read every line — there's nothing to hide.
 
 | File | Job |
 |---|---|
 | `manifest.json` | MV3 manifest; only `storage` permission |
-| `content.css` | Hides elements via html-class-gated rules, scoped to the top bar |
-| `content.js` | Loads settings, applies html classes, title observer, listens for live changes |
+| `content.css` | Broad unscoped selectors for document-root elements |
+| `content.js` | Shadow-root walker + inline display:none + red-badge detection + title stripper |
 | `popup/popup.html` | Toggle UI structure |
 | `popup/popup.css` | Popup styling with light/dark mode |
 | `popup/popup.js` | Wires toggles to `chrome.storage.sync` |
 
 ## Privacy
 
-**Zero data collected.** No analytics, no backend, no network requests, no tracking. The only permission is `storage`, used solely to remember your five toggle preferences. See [privacy-policy.md](store/privacy-policy.md).
+**Zero data collected.** No analytics, no backend, no network requests, no tracking. The only permission is `storage`, used solely to remember your five toggle preferences via Chrome's built-in sync (which rides your existing Chrome login — no separate account, no server).
 
 ## Compatibility
 
@@ -70,23 +71,17 @@ The extension is **small enough to read end-to-end in a single sitting** — abo
 
 ## If the bell reappears after a Reddit redesign
 
-Reddit changed their aria-label. Right-click the bell → Inspect → look at its `aria-label` attribute → update the selector in [`content.css`](content.css).
+Reddit changed their markup. Right-click the bell → Inspect → look at the element's `id`, `class`, `aria-label`, and any inner `<svg icon-name="...">` → add the new pattern to the relevant feature in [`content.js`](content.js) (`PATTERNS` object near the top).
 
 ## Development
 
 ```bash
 # Make changes
-$ vim content.css
+$ vim content.js
 
-# Reload: chrome://extensions → click the reload arrow on Reddit Quiet's card
+# Reload: chrome://extensions → click the reload ↻ icon on Reddit Quiet's card
 # Or: just refresh any reddit.com tab — content_scripts re-inject on navigation
 ```
-
-To publish a new version to the Web Store:
-
-1. Bump `version` in `manifest.json`
-2. Rebuild the zip (see `store/zip-instructions.md`)
-3. Upload via the [Developer Dashboard](https://chrome.google.com/webstore/devconsole)
 
 ## License
 
@@ -94,4 +89,4 @@ MIT — see [LICENSE](LICENSE).
 
 ## Contributing
 
-PRs welcome. Especially: aria-label updates when Reddit redesigns, additional toggle options, and translations.
+PRs welcome. Especially: pattern updates when Reddit redesigns, additional toggle options, and translations.
