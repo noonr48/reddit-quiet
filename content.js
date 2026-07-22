@@ -38,39 +38,56 @@
   const html = document.documentElement;
 
   // ---- Patterns: how to identify each feature's elements ----
-  // Each pattern lists substrings to match against aria-label/href/testid/class.
+  // Multiple axes per feature — any one match hides the element.
+  //   ariaLabel : aria-label attribute substring (case-insensitive)
+  //   href      : href attribute substring
+  //   testid    : data-testid attribute substring
+  //   className : class attribute substring
+  //   id        : id attribute substring  ← catches Reddit's canonical "header-action-item-<x>-button" pattern
+  //   iconName  : icon-name attribute on <svg> children ← catches icon-name="chat" etc.
   const PATTERNS = {
     hideBell: {
-      ariaLabel: ['notification', 'benachrichtigung', 'bell', 'inbox'],  // 'inbox' because Reddit labels it "Inbox" sometimes
-      href: ['/notifications', '/notification/', '/activity', '/message/inbox'],
+      ariaLabel: ['notification', 'benachrichtigung', 'bell'],
+      href: ['/notifications', '/notification/', '/activity'],
       testid: ['notification', 'inbox-count'],
       className: ['notification-count', 'notification-dot', 'notification-badge'],
+      id: ['header-action-item-notifications-button', 'notification-bell', 'header-action-item-activity-button'],
+      iconName: ['notification', 'bell'],
     },
     hideChat: {
       ariaLabel: ['chat'],
       href: ['/chat/'],
       testid: ['chat', 'open-chat'],
       className: ['chat-badge', 'chat-unread'],
+      id: ['header-action-item-chat-button', 'chat-button'],
+      iconName: ['chat'],
     },
     hideInbox: {
       ariaLabel: ['inbox', 'messages', 'mail'],
-      href: ['/message/inbox', '/message/unread'],
-      testid: ['inbox'],
-      className: ['inbox-badge'],
+      href: ['/message/inbox', '/message/unread', '/message/messages'],
+      testid: ['inbox', 'messages'],
+      className: ['inbox-badge', 'mail-badge'],
+      id: ['header-action-item-inbox-button', 'header-action-item-messages-button', 'inbox-button', 'message-button'],
+      iconName: ['inbox', 'mail', 'message'],
     },
     hideCreatePost: {
       ariaLabel: ['create post', 'create submission'],
       href: ['/submit/'],
       testid: ['create-post', 'create-submission'],
       className: [],
+      id: ['header-action-item-create-button', 'header-action-item-submit-button', 'create-post-button'],
+      iconName: ['create', 'submit', 'add'],
     },
   };
 
   // ---- Match an element against any enabled feature ----
   function featureForElement(el) {
-    const label = (el.getAttribute && (el.getAttribute('aria-label') || '') || '').toLowerCase();
-    const href = (el.getAttribute && (el.getAttribute('href') || '') || '').toLowerCase();
-    const testid = (el.getAttribute && (el.getAttribute('data-testid') || '') || '').toLowerCase();
+    if (!el || !el.getAttribute) return null;
+    const label = (el.getAttribute('aria-label') || '').toLowerCase();
+    const href = (el.getAttribute('href') || '').toLowerCase();
+    const testid = (el.getAttribute('data-testid') || '').toLowerCase();
+    const id = (el.id || '').toLowerCase();
+    const iconName = (el.getAttribute && el.getAttribute('icon-name') || '').toLowerCase();
     let clsStr = '';
     try {
       const c = el.className;
@@ -83,6 +100,8 @@
       if (pats.href && pats.href.some(p => href.includes(p))) return feature;
       if (pats.testid && pats.testid.some(t => testid.includes(t))) return feature;
       if (pats.className && pats.className.some(c => clsStr.includes(c))) return feature;
+      if (pats.id && pats.id.some(x => id.includes(x))) return feature;
+      if (pats.iconName && pats.iconName.some(n => iconName.includes(n))) return feature;
     }
     return null;
   }
