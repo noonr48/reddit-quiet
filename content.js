@@ -1,41 +1,52 @@
 // === Reddit Quiet — content.js ===
-// Hides Reddit's notification bell, unread badge, chat, inbox, and/or Create Post.
+// Hides distracting UI on Reddit AND YouTube.
+//
+// Reddit:  notification bell, unread badge, chat, inbox, Create Post, (N) title.
+// YouTube: Shorts shelves, sidebar link, search results, filter chips, tab —
+//          plus optional notification bell.
 //
 // CRITICAL ARCHITECTURE NOTE:
-// Reddit renders most of its top bar inside <shreddit-*> custom elements with
-// SHADOW DOM. CSS selectors from the document root CANNOT pierce shadow
-// boundaries. So content.css alone WILL NOT hide the bell. This file does the
-// heavy lifting:
+// Both Reddit and YouTube render UI inside custom elements with SHADOW DOM
+// (<shreddit-*> on Reddit, <ytd-*> on YouTube). CSS from the document root
+// CANNOT pierce shadow boundaries. This file:
 //   1. Walks every element AND its shadowRoot recursively
-//   2. Matches elements by aria-label, href, data-testid, className
+//   2. Matches elements by aria-label, href, data-testid, className, id, title
 //   3. Applies inline display:none (which works inside shadow roots)
-//   4. Nukes small red circles at the top of the page (the unread badge),
-//      detected by size + color (this is how the existing "Reddit Notification
-//      Remover" extension does it — proven approach)
+//   4. Nukes small red circles at the top of the page (unread badges)
 //   5. Re-runs every 2s + on DOM mutations + on SPA navigation
 //
-// Tab-title (N) counter is also stripped here.
+// content.css provides a "fast first pass" for elements at the document root.
+// The JS catches everything inside shadow roots.
 
 (() => {
   'use strict';
 
   const DEFAULTS = {
+    // Reddit
     hideBell: true,
     hideTabCounter: true,
     hideChat: false,
     hideInbox: false,
     hideCreatePost: false,
+    // YouTube
+    hideYtShorts: true,
+    hideYtNotifications: false,
   };
 
   const CLASS_MAP = {
+    // Reddit
     hideBell: 'rq-hide-bell',
     hideChat: 'rq-hide-chat',
     hideInbox: 'rq-hide-inbox',
     hideCreatePost: 'rq-hide-create-post',
+    // YouTube
+    hideYtShorts: 'rq-hide-yt-shorts',
+    hideYtNotifications: 'rq-hide-yt-notifs',
   };
 
   let settings = { ...DEFAULTS };
   const html = document.documentElement;
+  const isYouTube = location.hostname.includes('youtube.com');
 
   // ---- Patterns: how to identify each feature's elements ----
   // Multiple axes per feature — any one match hides the element.
@@ -43,9 +54,10 @@
   //   href      : href attribute substring
   //   testid    : data-testid attribute substring
   //   className : class attribute substring
-  //   id        : id attribute substring  ← catches Reddit's canonical "header-action-item-<x>-button" pattern
-  //   iconName  : icon-name attribute on <svg> children ← catches icon-name="chat" etc.
-  const PATTERNS = {
+  //   id        : id attribute substring
+  //   title     : title attribute substring  ← catches YouTube sidebar "Shorts" link
+  //   iconName  : icon-name attribute on <svg> children
+  const REDDIT_PATTERNS = {
     hideBell: {
       ariaLabel: ['notification', 'benachrichtigung', 'bell'],
       href: ['/notifications', '/notification/', '/activity'],
@@ -80,6 +92,22 @@
     },
   };
 
+  const YT_PATTERNS = {
+    // Shorts sidebar/mini-guide link lives inside shadow root of
+    // ytd-guide-entry-renderer / ytd-mini-guide-entry-renderer.
+    // The inner <a> has title="Shorts" and href="/shorts".
+    hideYtShorts: {
+      title: ['Shorts'],
+      href: ['/shorts'],
+    },
+    hideYtNotifications: {
+      ariaLabel: ['notification'],
+    },
+  };
+
+  // Pick the right pattern set for the current site
+  const PATTERNS = isYouTube ? YT_PATTERNS : REDDIT_PATTERNS;
+
   // ---- Match an element against any enabled feature ----
   function featureForElement(el) {
     if (!el || !el.getAttribute) return null;
@@ -87,6 +115,7 @@
     const href = (el.getAttribute('href') || '').toLowerCase();
     const testid = (el.getAttribute('data-testid') || '').toLowerCase();
     const id = (el.id || '').toLowerCase();
+    const title = (el.getAttribute('title') || '').toLowerCase();
     const iconName = (el.getAttribute && el.getAttribute('icon-name') || '').toLowerCase();
     let clsStr = '';
     try {
@@ -101,6 +130,7 @@
       if (pats.testid && pats.testid.some(t => testid.includes(t))) return feature;
       if (pats.className && pats.className.some(c => clsStr.includes(c))) return feature;
       if (pats.id && pats.id.some(x => id.includes(x))) return feature;
+      if (pats.title && pats.title.some(t => title.includes(t))) return feature;
       if (pats.iconName && pats.iconName.some(n => iconName.includes(n))) return feature;
     }
     return null;
@@ -126,8 +156,6 @@
 
   // ---- Detect & hide small red/orange badge dots near the top of the page ----
   // Heuristic: ≤32px square, in the top 100px of viewport, with red/orange bg.
-  // This is the "1" unread counter the user sees. Mirrors the proven approach
-  // from the existing "Reddit Notification Remover" extension.
   function isBadgeDot(el) {
     try {
       const rect = el.getBoundingClientRect();
@@ -150,8 +178,11 @@
 
   // ---- Main cleanup pass ----
   function cleanup() {
-    // Apply html.rq-* classes (so content.css's document-root rules also fire)
+    // Only toggle classes relevant to the current site (prevents cross-site
+    // CSS interference — e.g. Reddit's bell CSS accidentally hiding YouTube's bell)
     for (const [key, cls] of Object.entries(CLASS_MAP)) {
+      const isYtKey = key.startsWith('hideYt');
+      if (isYtKey !== isYouTube) continue;
       html.classList.toggle(cls, !!settings[key]);
     }
 
@@ -160,13 +191,16 @@
       if (featureForElement(el)) hide(el);
     }
 
-    // Nuke red badge dots if any of the icon-hiding features are on
-    if (settings.hideBell || settings.hideChat || settings.hideInbox) {
+    // Nuke red badge dots if any icon-hiding feature is on
+    const badgeFeatureOn = isYouTube
+      ? settings.hideYtNotifications
+      : (settings.hideBell || settings.hideChat || settings.hideInbox);
+    if (badgeFeatureOn) {
       nukeBadgeDots(document);
     }
 
-    // Strip (N) from title
-    if (settings.hideTabCounter) {
+    // Strip (N) from title (Reddit only — YouTube doesn't use this pattern)
+    if (!isYouTube && settings.hideTabCounter) {
       const TITLE_RE = /^\((\d+\+?)\)\s*/;
       if (TITLE_RE.test(document.title)) {
         document.title = document.title.replace(TITLE_RE, '');
@@ -179,7 +213,6 @@
   function scheduleCleanup() {
     if (pending) return;
     pending = true;
-    // Use requestAnimationFrame for visual changes; fallback to microtask
     if (typeof requestAnimationFrame === 'function') {
       requestAnimationFrame(() => { pending = false; cleanup(); });
     } else {
@@ -211,9 +244,8 @@
     });
   });
 
-  // Re-run on any DOM mutation (Reddit SPA re-renders constantly)
+  // Re-run on any DOM mutation (both Reddit and YouTube are SPAs)
   const obs = new MutationObserver(() => scheduleCleanup());
-  // Defer observation until document.documentElement exists (should already at document_start)
   const startObs = () => {
     obs.observe(document.documentElement, { childList: true, subtree: true });
   };

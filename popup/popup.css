@@ -115,6 +115,15 @@ html, body {
   margin: 4px 16px;
 }
 
+.rq-section-label {
+  padding: 6px 16px 2px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--rq-muted);
+}
+
 /* ---- Switch (the visual knob — the checkbox is hidden) ---- */
 .rq-row input[type="checkbox"] {
   position: absolute;

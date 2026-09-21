@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Reddit Quiet",
-  "version": "1.2.1",
-  "description": "Hide Reddit's notification bell, unread badge, and (N) tab counter. Optional Chat, Inbox, Create Post toggles. Zero tracking.",
+  "version": "1.3.0",
+  "description": "Hide Reddit's notification bell, unread badge, tab counter, and YouTube Shorts. Zero tracking, zero telemetry.",
   "permissions": ["storage"],
   "host_permissions": [],
   "action": {
@@ -16,7 +16,7 @@
   },
   "content_scripts": [
     {
-      "matches": ["*://*.reddit.com/*"],
+      "matches": ["*://*.reddit.com/*", "*://*.youtube.com/*"],
       "css": ["content.css"],
       "js": ["content.js"],
       "run_at": "document_start",
