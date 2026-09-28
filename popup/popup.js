@@ -14,6 +14,8 @@
     hideAds: true,
     hideComments: true,
     hideRecentPosts: true,
+    hideScores: true,
+    hideCommentCount: true,
     hideYtShorts: true,
     hideYtNotifications: false,
   };

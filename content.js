@@ -2,7 +2,8 @@
 // Hides distracting UI on Reddit AND YouTube.
 //
 // Reddit:  notification bell, unread badge, chat, inbox, Create Post, (N) title,
-//          ad/promoted posts, thread comments, Recent-Posts rail (v1.4.0).
+//          ad/promoted posts, thread comments, Recent-Posts rail (v1.4.0),
+//          vote scores + comment counts (v1.4.1 engagement quieting).
 // YouTube: Shorts shelves, sidebar link, search results, filter chips, tab —
 //          plus optional notification bell.
 //
@@ -32,6 +33,8 @@
     hideAds: true,
     hideComments: true,
     hideRecentPosts: true,
+    hideScores: true,
+    hideCommentCount: true,
     // YouTube
     hideYtShorts: true,
     hideYtNotifications: false,
@@ -46,6 +49,8 @@
     hideAds: 'rq-hide-ads',
     hideComments: 'rq-hide-comments',
     hideRecentPosts: 'rq-hide-recent-posts',
+    hideScores: 'rq-hide-scores',
+    hideCommentCount: 'rq-hide-comment-counts',
     // YouTube
     hideYtShorts: 'rq-hide-yt-shorts',
     hideYtNotifications: 'rq-hide-yt-notifs',
@@ -66,6 +71,18 @@
   //   iconName  : icon-name attribute on <svg> children
   //   tagName   : EXACT custom-element tag match (uppercase) ← shreddit-ad-post,
   //               shreddit-comment, recent-posts (v1.4.0 feed/thread quieting)
+  //   attr      : element HAS the named attribute ← button[upvote]/button[downvote]
+  //   textRegex : element's ENTIRE (trimmed) text matches ← leaf elements only;
+  //               catches the "32 comments" action-bar labels (v1.4.1)
+  //   linkText  : ANCHOR whose href contains a substring AND whose entire text
+  //               matches a regex ← catches split-label comment-count links
+  //               ("32" + "comments" in separate children)
+  //   onlyTags  : restrict the whole feature to these tag names ← keeps the
+  //               vote-button axes off non-button elements that might carry
+  //               upvote/downvote attributes
+  // Feature flag hideScoreSibling: matching elements are vote BUTTONS — hide
+  // their adjacent score element (<span> or <faceplate-number>), NOT the
+  // button, so voting still works.
   const REDDIT_PATTERNS = {
     hideBell: {
       ariaLabel: ['notification', 'benachrichtigung', 'bell'],
@@ -124,6 +141,27 @@
     hideRecentPosts: {
       tagName: ['RECENT-POSTS'],
     },
+    // ---- v1.4.1: engagement quieting ----
+    // Vote buttons carry the verb in aria-label ("upvote"/"downvote") and/or a
+    // bare upvote/downvote attribute, inside shreddit-post's shadow root. The
+    // SCORE is the <span> between the arrows (button[upvote] + span) — we hide
+    // the span, keep the arrows, so voting still works.
+    hideScores: {
+      onlyTags: ['BUTTON'],
+      ariaLabel: ['upvote', 'downvote'],
+      attr: ['upvote', 'downvote'],
+      hideScoreSibling: true,
+    },
+    // Comment-count links render as plain text "32 comments" / "1.2k comments"
+    // with no stable testid — exact full-text match on leaf elements only, plus
+    // an anchor form for split labels ("32" + "comments" as separate children).
+    // Rare false positive: a user post/comment whose entire text is exactly
+    // "N comments" also hides — acceptable for a quiet extension, documented
+    // in the README.
+    hideCommentCount: {
+      textRegex: /^\d[\d.,]*\s*[km]?\s*comments?$/i,
+      linkText: [{ hrefSub: '/comments/', textRegex: /^\d[\d.,]*\s*[km]?\s*comments?$/i }],
+    },
   };
 
   const YT_PATTERNS = {
@@ -147,6 +185,7 @@
     if (!el || !el.getAttribute) return null;
     const label = (el.getAttribute('aria-label') || '').toLowerCase();
     const tag = String(el.tagName || '').toUpperCase();
+    const isLeaf = el.children.length === 0;
     const href = (el.getAttribute('href') || '').toLowerCase();
     const testid = (el.getAttribute('data-testid') || '').toLowerCase();
     const id = (el.id || '').toLowerCase();
@@ -160,7 +199,11 @@
 
     for (const [feature, pats] of Object.entries(PATTERNS)) {
       if (!settings[feature]) continue;
+      if (pats.onlyTags && !pats.onlyTags.includes(tag)) continue;
       if (pats.tagName && pats.tagName.some(t => tag === t)) return feature;
+      if (pats.attr && pats.attr.some(a => el.hasAttribute(a))) return feature;
+      if (pats.textRegex && isLeaf && (el.textContent || '').length <= 24 && pats.textRegex.test((el.textContent || '').trim())) return feature;
+      if (pats.linkText && pats.linkText.some(lt => tag === 'A' && (el.getAttribute('href') || '').toLowerCase().includes(lt.hrefSub) && lt.textRegex.test((el.textContent || '').trim()))) return feature;
       if (pats.ariaLabel && pats.ariaLabel.some(p => label.includes(p))) return feature;
       if (pats.href && pats.href.some(p => href.includes(p))) return feature;
       if (pats.testid && pats.testid.some(t => testid.includes(t))) return feature;
@@ -209,7 +252,14 @@
       hiddenByFeature.set(feature, s);
     }
     s.add(el);
-    if (s.size > HIDDEN_CAP) s.clear();
+    if (s.size > HIDDEN_CAP) {
+      // Prune detached nodes first (long SPA sessions accumulate them);
+      // only clear outright if live elements still exceed the cap.
+      for (const tracked of s) {
+        if (!tracked.isConnected) s.delete(tracked);
+      }
+      if (s.size > HIDDEN_CAP) s.clear();
+    }
   }
 
   function unhideFeature(feature) {
@@ -243,6 +293,17 @@
     }
   }
 
+  // ---- v1.4.1: hide the score element next to a vote button (not the button) ----
+  // The score renders as a <span> between the arrows, or (per Reddit's number
+  // component) as a <faceplate-number> — hide either; the arrows stay.
+  function hideScoreSiblings(el, feature) {
+    for (const sib of [el.previousElementSibling, el.nextElementSibling]) {
+      if (sib && (sib.tagName === 'SPAN' || sib.tagName === 'FACEPLATE-NUMBER')) {
+        hideTracked(sib, feature);
+      }
+    }
+  }
+
   // ---- Main cleanup pass ----
   function cleanup() {
     // Only toggle classes relevant to the current site (prevents cross-site
@@ -253,10 +314,17 @@
       html.classList.toggle(cls, !!settings[key]);
     }
 
-    // Walk all elements + shadow roots, hide matches (tracked for unhide)
+    // Walk all elements + shadow roots, hide matches (tracked for unhide).
+    // hideScoreSibling features hide the <span> beside the vote button instead
+    // of the button itself, so voting still works.
     for (const el of allElements(document)) {
       const f = featureForElement(el);
-      if (f) hideTracked(el, f);
+      if (!f) continue;
+      if (PATTERNS[f].hideScoreSibling) {
+        hideScoreSiblings(el, f);
+      } else {
+        hideTracked(el, f);
+      }
     }
 
     // Nuke red badge dots if any icon-hiding feature is on

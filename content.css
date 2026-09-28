@@ -78,6 +78,18 @@ html.rq-hide-recent-posts recent-posts {
   display: none !important;
 }
 
+/* ---- v1.4.1: Vote scores ----
+ * The score is the <span> after the upvote button inside shreddit-post's
+ * shadow root (button[upvote] + span). This CSS fast-pass covers light DOM;
+ * content.js hides adjacent spans of matched vote buttons (arrows stay —
+ * voting still works). Comment-count labels are text-matched in JS only. */
+html.rq-hide-scores button[upvote] + span,
+html.rq-hide-scores button[upvote] + faceplate-number,
+html.rq-hide-scores button[aria-label="upvote" i] + span,
+html.rq-hide-scores button[aria-label="upvote" i] + faceplate-number {
+  display: none !important;
+}
+
 /* The tab-title (N) counter is handled by content.js — CSS can't touch document.title. */
 
 /* ===== YouTube ===== */

@@ -1,6 +1,6 @@
 # Reddit Quiet
 
-> A tiny Chrome extension that hides Reddit's notification bell, red unread badge, and `(N)` tab counter. Plus toggleable Chat, Inbox, Create Post, ad posts, thread comments, and Recent Posts hiding. Zero tracking, zero data.
+> A tiny Chrome extension that hides Reddit's notification bell, red unread badge, and `(N)` tab counter. Plus toggleable Chat, Inbox, Create Post, ad posts, thread comments, Recent Posts, vote scores, and comment-count hiding — and YouTube Shorts. Zero tracking, zero data.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 ![Manifest](https://img.shields.io/badge/Manifest-V3-blue)
@@ -14,7 +14,7 @@ Reddit's notification bell in the top-right has a red unread dot that never goes
 
 ## Features
 
-Ten toggleable options in a clean popup:
+Twelve toggleable options in a clean popup:
 
 | Toggle | Default | What it removes |
 |---|---|---|
@@ -26,12 +26,14 @@ Ten toggleable options in a clean popup:
 | **Ad posts** | ON | Promoted posts in the feed (`<shreddit-ad-post>`) |
 | **Comments on posts** | ON | The whole comment section on threads (`<shreddit-comment>` tree) |
 | **Recent posts sidebar** | ON | The "Recent Posts" rail on Home (`<recent-posts>`) |
+| **Vote scores** | ON | The score between the vote arrows (arrows stay — voting works) |
+| **Comment counts** | ON | "N comments" links under posts |
 | YouTube Shorts | ON | Shorts shelves, sidebar link & search results |
 | YouTube bell | OFF | The 🔔 icon in YouTube's top bar |
 
 Settings sync across your devices via Chrome's built-in sync. Changes apply instantly to any open Reddit or YouTube tab — toggling a feature off restores the elements it hid without a reload.
 
-The three **Feed & threads** toggles work by exact custom-element tag match (`shreddit-ad-post`, `shreddit-comment`, `recent-posts`), so they survive Reddit's randomized CSS-class churn. Comment hiding is scoped to thread pages — profile comment history (`<shreddit-profile-comment>`) and the generic composer (`<shreddit-composer>`, reused by the /submit post form) are deliberately untouched.
+The three **Feed & threads** toggles plus **Vote scores** / **Comment counts** work by exact custom-element tag match, vote-button attributes, or full-text match — stable against Reddit's randomized CSS-class churn. Comment hiding is scoped to thread pages — profile comment history (`<shreddit-profile-comment>`) and the generic composer (`<shreddit-composer>`, reused by the /submit post form) are deliberately untouched. Vote *buttons* stay visible so voting still works; only the numbers vanish.
 
 ## Install (load unpacked)
 
@@ -54,7 +56,7 @@ Reddit Quiet uses a hybrid strategy:
 
 The tab-title `(N)` counter is stripped via a `MutationObserver` on `<title>`.
 
-The extension is **small enough to read end-to-end in a single sitting** — about 900 lines including comments and blank lines across 6 files. Read every line — there's nothing to hide.
+The extension is **small enough to read end-to-end in a single sitting** — about 1000 lines including comments and blank lines across 6 files. Read every line — there's nothing to hide.
 
 | File | Job |
 |---|---|
@@ -67,13 +69,14 @@ The extension is **small enough to read end-to-end in a single sitting** — abo
 
 ## Privacy
 
-**Zero data collected.** No analytics, no backend, no network requests, no tracking. The only permission is `storage`, used solely to remember your ten toggle preferences via Chrome's built-in sync (which rides your existing Chrome login — no separate account, no server).
+**Zero data collected.** No analytics, no backend, no network requests, no tracking. The only permission is `storage`, used solely to remember your twelve toggle preferences via Chrome's built-in sync (which rides your existing Chrome login — no separate account, no server).
 
 ## Compatibility
 
 - Chrome, Brave, Edge, Opera, Vivaldi — any Chromium browser with extension support
 - New Reddit (`reddit.com`) — fully supported
-- Old Reddit (`old.reddit.com`) — no-op (no bell to hide there, no harm done)
+- Old Reddit (`old.reddit.com`) — mostly a no-op (no bell to hide there). The comment-count labels ("N comments" links) are plain text and may hide there too; nothing else matches old Reddit's DOM.
+- Edge case: text whose entire content is exactly "N comments" (rare user posts/comments worded that way) also hides while Comment counts is ON — toggle it off if you ever hit it.
 - Reddit mobile apps — not affected (those are separate native products)
 
 ## If the bell reappears after a Reddit redesign
