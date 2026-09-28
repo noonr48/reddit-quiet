@@ -12,3 +12,7 @@ Thumbs.db
 .idea/
 
 # Keep the screenshots and store assets in git though — they're source-of-truth for listings
+
+# Local deployment manifest (references machine-local CRX path — never publish)
+updates.xml
+.sloane/

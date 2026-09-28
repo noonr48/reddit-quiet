@@ -1,7 +1,8 @@
 // === Reddit Quiet — content.js ===
 // Hides distracting UI on Reddit AND YouTube.
 //
-// Reddit:  notification bell, unread badge, chat, inbox, Create Post, (N) title.
+// Reddit:  notification bell, unread badge, chat, inbox, Create Post, (N) title,
+//          ad/promoted posts, thread comments, Recent-Posts rail (v1.4.0).
 // YouTube: Shorts shelves, sidebar link, search results, filter chips, tab —
 //          plus optional notification bell.
 //
@@ -28,6 +29,9 @@
     hideChat: false,
     hideInbox: false,
     hideCreatePost: false,
+    hideAds: true,
+    hideComments: true,
+    hideRecentPosts: true,
     // YouTube
     hideYtShorts: true,
     hideYtNotifications: false,
@@ -39,6 +43,9 @@
     hideChat: 'rq-hide-chat',
     hideInbox: 'rq-hide-inbox',
     hideCreatePost: 'rq-hide-create-post',
+    hideAds: 'rq-hide-ads',
+    hideComments: 'rq-hide-comments',
+    hideRecentPosts: 'rq-hide-recent-posts',
     // YouTube
     hideYtShorts: 'rq-hide-yt-shorts',
     hideYtNotifications: 'rq-hide-yt-notifs',
@@ -57,6 +64,8 @@
   //   id        : id attribute substring
   //   title     : title attribute substring  ← catches YouTube sidebar "Shorts" link
   //   iconName  : icon-name attribute on <svg> children
+  //   tagName   : EXACT custom-element tag match (uppercase) ← shreddit-ad-post,
+  //               shreddit-comment, recent-posts (v1.4.0 feed/thread quieting)
   const REDDIT_PATTERNS = {
     hideBell: {
       ariaLabel: ['notification', 'benachrichtigung', 'bell'],
@@ -90,6 +99,31 @@
       id: ['header-action-item-create-button', 'header-action-item-submit-button', 'create-post-button'],
       iconName: ['create', 'submit', 'add'],
     },
+    // ---- v1.4.0: feed & thread quieting (tagName = exact custom-element match) ----
+    // shreddit-ad-post   = a promoted/ad post card in the feed (incl. its "Ad" label)
+    // recent-posts       = the "Recent Posts" rail on the home page
+    // shreddit-comment   = one comment (wraps body + nested replies + its reply box)
+    // shreddit-comment-tree = the entire comment section under a post
+    // shreddit-comment-tree-stats / shreddit-comments-sort-dropdown = section header
+    // NOTE: shreddit-composer (the "Add a comment" box) is deliberately NOT
+    // matched — Reddit reuses that generic composer for the /submit post-creation
+    // form, so hiding it would break posting. Ditto profile pages, which render
+    // comment history as <shreddit-profile-comment> — not matched, staying
+    // scoped to thread pages.
+    hideAds: {
+      tagName: ['SHREDDIT-AD-POST'],
+    },
+    hideComments: {
+      tagName: [
+        'SHREDDIT-COMMENT',
+        'SHREDDIT-COMMENT-TREE',
+        'SHREDDIT-COMMENT-TREE-STATS',
+        'SHREDDIT-COMMENTS-SORT-DROPDOWN',
+      ],
+    },
+    hideRecentPosts: {
+      tagName: ['RECENT-POSTS'],
+    },
   };
 
   const YT_PATTERNS = {
@@ -112,6 +146,7 @@
   function featureForElement(el) {
     if (!el || !el.getAttribute) return null;
     const label = (el.getAttribute('aria-label') || '').toLowerCase();
+    const tag = String(el.tagName || '').toUpperCase();
     const href = (el.getAttribute('href') || '').toLowerCase();
     const testid = (el.getAttribute('data-testid') || '').toLowerCase();
     const id = (el.id || '').toLowerCase();
@@ -125,6 +160,7 @@
 
     for (const [feature, pats] of Object.entries(PATTERNS)) {
       if (!settings[feature]) continue;
+      if (pats.tagName && pats.tagName.some(t => tag === t)) return feature;
       if (pats.ariaLabel && pats.ariaLabel.some(p => label.includes(p))) return feature;
       if (pats.href && pats.href.some(p => href.includes(p))) return feature;
       if (pats.testid && pats.testid.some(t => testid.includes(t))) return feature;
@@ -152,6 +188,37 @@
     if (el.style) {
       el.style.setProperty('display', 'none', 'important');
     }
+  }
+
+  // ---- Unhide path (v1.4.0) ----
+  // Inline display:none is otherwise permanent until reload: toggling a feature
+  // OFF mid-session would leave its elements invisible (only the CSS-gated
+  // html.rq-* rules self-unhide via the class toggle). So we record which
+  // elements each feature hid and clear the inline style when it turns off.
+  // Best-effort: on overflow the record is dropped (long sessions on huge
+  // threads); still-matching elements are re-hidden by the next cleanup pass,
+  // and detached nodes are harmless to touch.
+  const HIDDEN_CAP = 5000;
+  const hiddenByFeature = new Map(); // feature -> Set<Element>
+
+  function hideTracked(el, feature) {
+    hide(el);
+    let s = hiddenByFeature.get(feature);
+    if (!s) {
+      s = new Set();
+      hiddenByFeature.set(feature, s);
+    }
+    s.add(el);
+    if (s.size > HIDDEN_CAP) s.clear();
+  }
+
+  function unhideFeature(feature) {
+    const s = hiddenByFeature.get(feature);
+    if (!s) return;
+    for (const el of s) {
+      try { el.style.removeProperty('display'); } catch (e) { /* detached node */ }
+    }
+    hiddenByFeature.delete(feature);
   }
 
   // ---- Detect & hide small red/orange badge dots near the top of the page ----
@@ -186,9 +253,10 @@
       html.classList.toggle(cls, !!settings[key]);
     }
 
-    // Walk all elements + shadow roots, hide matches
+    // Walk all elements + shadow roots, hide matches (tracked for unhide)
     for (const el of allElements(document)) {
-      if (featureForElement(el)) hide(el);
+      const f = featureForElement(el);
+      if (f) hideTracked(el, f);
     }
 
     // Nuke red badge dots if any icon-hiding feature is on
@@ -240,6 +308,11 @@
     if (area !== 'sync') return;
     chrome.storage.sync.get(DEFAULTS, (s) => {
       settings = { ...DEFAULTS, ...s };
+      // Clear inline hides for any feature now OFF, then re-run — anything
+      // still matched by another enabled feature gets re-hidden by cleanup().
+      for (const key of Object.keys(settings)) {
+        if (!settings[key]) unhideFeature(key);
+      }
       cleanup();
     });
   });

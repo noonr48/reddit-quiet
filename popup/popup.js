@@ -11,6 +11,9 @@
     hideChat: false,
     hideInbox: false,
     hideCreatePost: false,
+    hideAds: true,
+    hideComments: true,
+    hideRecentPosts: true,
     hideYtShorts: true,
     hideYtNotifications: false,
   };

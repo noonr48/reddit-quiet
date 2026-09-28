@@ -53,6 +53,31 @@ html.rq-hide-create-post a[href="/submit/"] {
   display: none !important;
 }
 
+/* ---- v1.4.0: Ad / promoted posts (feed) ----
+ * Promoted posts are <shreddit-ad-post> custom elements. The JS walker also
+ * re-hides them wherever Reddit re-renders them inside shadow roots. */
+html.rq-hide-ads shreddit-ad-post {
+  display: none !important;
+}
+
+/* ---- v1.4.0: Comments on threads ----
+ * Each comment is a <shreddit-comment> custom element (nested replies live in
+ * the parent's light DOM); the whole section sits in <shreddit-comment-tree>.
+ * shreddit-composer (the "Add a comment" box) is deliberately NOT hidden:
+ * Reddit reuses that generic composer for the /submit post form.
+ * content.js's walker re-applies hiding for late-rendered / shadow content. */
+html.rq-hide-comments shreddit-comment,
+html.rq-hide-comments shreddit-comment-tree,
+html.rq-hide-comments shreddit-comment-tree-stats,
+html.rq-hide-comments shreddit-comments-sort-dropdown {
+  display: none !important;
+}
+
+/* ---- v1.4.0: "Recent Posts" rail on Home ---- */
+html.rq-hide-recent-posts recent-posts {
+  display: none !important;
+}
+
 /* The tab-title (N) counter is handled by content.js — CSS can't touch document.title. */
 
 /* ===== YouTube ===== */
