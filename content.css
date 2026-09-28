@@ -54,3 +54,47 @@ html.rq-hide-create-post a[href="/submit/"] {
 }
 
 /* The tab-title (N) counter is handled by content.js — CSS can't touch document.title. */
+
+/* ===== YouTube ===== */
+/* Rules are gated on html.rq-hide-yt-shorts / html.rq-hide-yt-notifs classes
+ * that content.js adds based on the popup toggle settings.
+ *
+ * YouTube uses <ytd-*> custom elements in the light DOM (with shadow roots
+ * INSIDE them). CSS from the document root CAN target the outer element —
+ * it just can't pierce INTO the shadow root. So hiding the whole element via
+ * display:none works fine for shelves, tabs, and the notification button.
+ * The sidebar "Shorts" link lives INSIDE a shadow root and is handled by
+ * content.js's shadow-DOM walker.
+ */
+
+/* ---- Shorts shelf on Home & Subscriptions ---- */
+html.rq-hide-yt-shorts ytd-rich-shelf-renderer[is-shorts] {
+  display: none !important;
+}
+
+/* ---- Shorts carousel in Search results ---- */
+html.rq-hide-yt-shorts ytd-reel-shelf-renderer {
+  display: none !important;
+}
+
+/* ---- Individual Shorts in search results (Chrome 105+ supports :has) ---- */
+html.rq-hide-yt-shorts ytd-video-renderer:has(a[href^="/shorts"]) {
+  display: none !important;
+}
+
+/* ---- "Shorts" filter chip in search ---- */
+html.rq-hide-yt-shorts yt-chip-cloud-chip-renderer:has(yt-formatted-string[title="Shorts"]) {
+  display: none !important;
+}
+
+/* ---- Shorts tab on channel pages ---- */
+html.rq-hide-yt-shorts ytd-tab-shape[tab-title="Shorts"],
+html.rq-hide-yt-shorts yt-tab-shape[tab-title="Shorts"] {
+  display: none !important;
+}
+
+/* ---- YouTube notification bell (top bar) ---- */
+html.rq-hide-yt-notifs ytd-notification-topbar-button-renderer,
+html.rq-hide-yt-notifs button[aria-label*="notification" i] {
+  display: none !important;
+}

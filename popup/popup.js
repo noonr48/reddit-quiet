@@ -11,6 +11,8 @@
     hideChat: false,
     hideInbox: false,
     hideCreatePost: false,
+    hideYtShorts: true,
+    hideYtNotifications: false,
   };
 
   const checkboxes = document.querySelectorAll('input[type="checkbox"][data-setting]');
