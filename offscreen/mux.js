@@ -68,7 +68,15 @@ async function runJob(job) {
   let audioUrl = null;
   if (job.dashUrl) {
     try {
-      const res = await fetch(job.dashUrl);
+      // A stalled manifest fetch must not wedge the job forever either.
+      const mController = new AbortController();
+      const mTimer = setTimeout(() => mController.abort(), 30000);
+      let res;
+      try {
+        res = await fetch(job.dashUrl, { signal: mController.signal });
+      } finally {
+        clearTimeout(mTimer);
+      }
       if (res.ok) {
         const picked = parseMpd(await res.text(), job.dashUrl);
         if (picked.video) videoUrl = picked.video.url;

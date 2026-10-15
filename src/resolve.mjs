@@ -99,7 +99,7 @@ const re = /<Representation\b([^>]*)>(?:(?!<\/?Representation)[\s\S])*?<BaseURL>
 // Make a safe filename body from a post title.
 export function sanitizeFilename(title) {
   const s = String(title || "reddit-video")
-    .replace(/[\/:*?"<>|]/g, "")
+    .replace(/[\\/:*?"<>|]/g, "")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 80)

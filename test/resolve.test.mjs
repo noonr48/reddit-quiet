@@ -50,8 +50,9 @@ test("extractRedditVideo: none for text/external posts", () => {
 });
 
 test("sanitizeFilename", () => {
-  assert.equal(sanitizeFilename("a/b\c:d*e?f\"g<h>i|j"), "abcdefghij");
+  assert.equal(sanitizeFilename("a/b\\c:d*e?f\"g<h>i|j"), "abcdefghij");
   assert.equal(sanitizeFilename("   "), "reddit-video");
   assert.ok(sanitizeFilename("x".repeat(200)).length <= 80);
   assert.equal(sanitizeFilename("trailing dots... "), "trailing dots");
+  assert.equal(sanitizeFilename("back" + String.fromCharCode(92) + "slash"), "backslash");
 });

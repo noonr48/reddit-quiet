@@ -90,13 +90,20 @@
     return false;
   }
 
+  const NEG_TTL_MS = 5000;
+
   function hasVideo(post) {
     if (videoPosts.has(post)) return true;
+    // Throttle negative re-walks: cards can lazily attach their hover
+    // preview <video>, so negatives expire after 5s instead of living forever.
+    const now = Date.now();
+    if (post.__rqVideoCheckedAt && now - post.__rqVideoCheckedAt < NEG_TTL_MS) return false;
     let found = false;
     try {
       found = deepHasVideo(post);
     } catch (e) { /* walk issue — treat as no video */ }
     if (found) videoPosts.add(post);
+    else post.__rqVideoCheckedAt = now;
     return found;
   }
 
