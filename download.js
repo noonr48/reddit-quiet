@@ -107,18 +107,39 @@
     return found;
   }
 
+  // Resolve the hovered post across SHADOW-DOM boundaries: Reddit renders
+  // card interiors inside the shadow root of shreddit-post, and closest()
+  // cannot cross that boundary — composedPath() can. (This was the v1.5.0
+  // bug: the pill never appeared because no hover ever resolved a card.)
+  function postFromEvent(e) {
+    const path = e.composedPath ? e.composedPath() : [];
+    for (const node of path) {
+      if (node && node.tagName === "SHREDDIT-POST") return node;
+    }
+    if (e.target && e.target.closest) return e.target.closest("shreddit-post");
+    return null;
+  }
+
   document.addEventListener(
     "mouseover",
     (e) => {
       if (!enabled) return;
       const t = e.target;
       if (!t || t.id === PILL_ID) return;
-      const card = t.closest ? t.closest("shreddit-post") : null;
-      if (card && hasVideo(card)) {
-        targetPost = card;
-        showPill();
-        scheduleHide();
-      } else if (!card) {
+      const card = postFromEvent(e);
+      if (card) {
+        // On an open post page the whole page is one shreddit-post — the
+        // click self-validates against the post JSON, so no video sniffing
+        // needed. In feeds, gate on detected video to avoid noise on text
+        // posts (the player usually lazy-mounts on hover).
+        const isPostPage = location.pathname.includes("/comments/");
+        if (isPostPage || hasVideo(card)) {
+          targetPost = card;
+          showPill();
+          scheduleHide();
+          return;
+        }
+      } else {
         scheduleHide();
       }
     },
