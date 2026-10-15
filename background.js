@@ -38,27 +38,66 @@ async function handleStart(msg, sender) {
   if (!video.dashUrl && !video.fallbackUrl) return { ok: false, error: "No video stream URL found" };
   const filename = sanitizeFilename(video.title) + ".mp4";
   active = { tabId: sender && sender.tab ? sender.tab.id : null, filename };
-  await ensureOffscreen();
-  const resp = await chrome.runtime.sendMessage({
-    type: "rq-dl-job",
-    job: { dashUrl: video.dashUrl, fallbackUrl: video.fallbackUrl, isGif: video.isGif, filename },
-  });
+  let resp;
+  const job = { dashUrl: video.dashUrl, fallbackUrl: video.fallbackUrl, isGif: video.isGif, filename };
+  try {
+    await ensureOffscreen();
+    // (7) one retry: a click racing the previous job teardown sees a
+    // half-closed document ("Receiving end does not exist") — wait and retry.
+    try {
+      resp = await chrome.runtime.sendMessage({ type: "rq-dl-job", job });
+    } catch (e) {
+      await new Promise((r) => setTimeout(r, 400));
+      await ensureOffscreen();
+      resp = await chrome.runtime.sendMessage({ type: "rq-dl-job", job });
+    }
+  } catch (e) {
+    active = null;
+    await closeOffscreen();
+    throw e;
+  }
   if (!resp || !resp.ok) {
-    const busy = resp && resp.error === "busy";
-    if (!busy) {
-      active = null;
+    // (2) busy = the pre-existing job owns the pipeline; drop OUR state and
+    // leave the persisted job alone so its completion still routes right.
+    active = null;
+    if (!resp || resp.error !== "busy") {
+      chrome.storage.session.remove("rqJob").catch(() => {});
       await closeOffscreen();
     }
-    return { ok: false, error: busy ? "A download is already in progress" : "Muxer did not start" };
+    return { ok: false, error: resp && resp.error === "busy" ? "A download is already in progress" : "Muxer did not start" };
   }
+  // Persist the job only once accepted, so a service-worker restart mid-job
+  // cannot drop the finished download (review finding 1).
+  chrome.storage.session.set({ rqJob: active }).catch(() => {});
   return { ok: true };
 }
 
 async function handleComplete(msg) {
   if (!active) {
+    // The service worker may have restarted mid-job; recover the job so the
+    // finished file still lands (review finding 1).
+    try {
+      const s = await chrome.storage.session.get("rqJob");
+      if (s && s.rqJob) {
+        active = { tabId: s.rqJob.tabId, filename: msg.filename || s.rqJob.filename };
+      }
+    } catch (e) { /* storage unavailable */ }
+  }
+  if (!active) {
+    // No job state anywhere: save the file anyway rather than dropping it.
+    try {
+      await chrome.downloads.download({
+        url: msg.blobUrl,
+        filename: "Reddit/" + (msg.filename || "reddit-video.mp4"),
+        conflictAction: "uniquify",
+        saveAs: false,
+      });
+    } catch (e) { /* nothing further possible */ }
+    chrome.storage.session.remove("rqJob").catch(() => {});
     await closeOffscreen();
     return;
   }
+  active.hasAudio = msg.hasAudio !== false;
   try {
     const downloadId = await chrome.downloads.download({
       url: msg.blobUrl,
@@ -67,6 +106,7 @@ async function handleComplete(msg) {
       saveAs: false,
     });
     active.downloadId = downloadId;
+    chrome.storage.session.set({ rqJob: active }).catch(() => {});
     statusToTab({ type: "rq-dl-status", pct: 98, label: "saving" });
   } catch (e) {
     statusToTab({ type: "rq-dl-status", error: "Could not save file: " + e.message });
@@ -92,21 +132,38 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     case "rq-dl-error":
       statusToTab({ type: "rq-dl-status", error: msg.error });
       active = null;
+      chrome.storage.session.remove("rqJob").catch(() => {});
       closeOffscreen();
       return;
   }
 });
 
 chrome.downloads.onChanged.addListener(async (delta) => {
+  if (!active) {
+    // (6) SW may have died between starting the save and this event:
+    // recover the job so the offscreen doc still gets closed.
+    try {
+      const s = await chrome.storage.session.get("rqJob");
+      if (s && s.rqJob && s.rqJob.downloadId) active = s.rqJob;
+    } catch (e) { /* storage unavailable */ }
+  }
   if (!active || delta.id !== active.downloadId) return;
   const state = delta.state && delta.state.current;
   if (state === "complete") {
-    statusToTab({ type: "rq-dl-status", pct: 100, label: "done", filename: active.filename });
+    statusToTab({
+      type: "rq-dl-status",
+      pct: 100,
+      label: "done",
+      filename: active.filename,
+      hasAudio: active.hasAudio !== false,
+    });
     active = null;
+    chrome.storage.session.remove("rqJob").catch(() => {});
     await closeOffscreen();
   } else if (state === "interrupted") {
     statusToTab({ type: "rq-dl-status", error: "Download interrupted" });
     active = null;
+    chrome.storage.session.remove("rqJob").catch(() => {});
     await closeOffscreen();
   }
 });

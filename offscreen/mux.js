@@ -5,36 +5,60 @@
 import { parseMpd } from "../src/resolve.mjs";
 import { remuxVideoAudio } from "../src/remux-core.mjs";
 
-const MAX_INPUT_BYTES = 1.5 * 1024 * 1024 * 1024;
+// (4) inputs are held fully in RAM plus the muxed output plus a final
+// Blob copy (~3x peak), so cap inputs well below the renderer crash band.
+const MAX_INPUT_BYTES = 500 * 1024 * 1024;
 let busy = false;
 
 const send = (msg) => chrome.runtime.sendMessage(msg).catch(() => {});
 const progress = (pct, label) => send({ type: "rq-dl-progress", pct, label });
 
+const STALL_TIMEOUT_MS = 120000;
+
 async function fetchWithProgress(url, fromPct, toPct, label) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error("fetch " + res.status + " (" + label + ")");
-  const total = parseInt(res.headers.get("Content-Length") || "0", 10);
-  if (!res.body) return await res.blob();
-  const reader = res.body.getReader();
-  const chunks = [];
-  let received = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    chunks.push(value);
-    received += value.byteLength;
-    if (total > 0) {
-      progress(fromPct + (toPct - fromPct) * Math.min(1, received / total), label + " " + Math.round((100 * received) / total) + "%");
+  // (3) abort a stalled transfer instead of wedging the job forever.
+  const controller = new AbortController();
+  let stallTimer = null;
+  const armStall = () => {
+    clearTimeout(stallTimer);
+    stallTimer = setTimeout(() => controller.abort(), STALL_TIMEOUT_MS);
+  };
+  armStall();
+  let result;
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    if (!res.ok) throw new Error("fetch " + res.status + " (" + label + ")");
+    // (4) preflight the size before pulling it all into memory.
+    const total = parseInt(res.headers.get("Content-Length") || "0", 10);
+    if (total > MAX_INPUT_BYTES) throw new Error("video too large (>500 MB)");
+    if (!res.body) {
+      result = await res.blob();
+    } else {
+      const reader = res.body.getReader();
+      const chunks = [];
+      let received = 0;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        armStall();
+        chunks.push(value);
+        received += value.byteLength;
+        if (total > 0) {
+          progress(fromPct + (toPct - fromPct) * Math.min(1, received / total), label + " " + Math.round((100 * received) / total) + "%");
+        }
+      }
+      const out = new Uint8Array(received);
+      let off = 0;
+      for (const c of chunks) {
+        out.set(c, off);
+        off += c.byteLength;
+      }
+      result = new Blob([out]);
     }
+  } finally {
+    clearTimeout(stallTimer);
   }
-  const out = new Uint8Array(received);
-  let off = 0;
-  for (const c of chunks) {
-    out.set(c, off);
-    off += c.byteLength;
-  }
-  return new Blob([out]);
+  return result;
 }
 
 async function runJob(job) {
@@ -67,7 +91,7 @@ async function runJob(job) {
     }
   }
   if (videoBlob.size + (audioBlob ? audioBlob.size : 0) > MAX_INPUT_BYTES) {
-    throw new Error("video too large (>1.5 GB)");
+    throw new Error("video too large (>500 MB)");
   }
 
   // 3. Remux — or pass the video straight through when there is no audio.

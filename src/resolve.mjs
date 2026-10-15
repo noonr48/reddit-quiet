@@ -63,7 +63,9 @@ export function parseMpd(mpdText, mpdUrl) {
   }
 
   if (reps.length === 0) {
-    const re = /<Representation\b([^>]*)>[\s\S]*?<BaseURL>([^<]+)<\/BaseURL>/g;
+    // Tempered pattern: the match may not cross another Representation tag, so a
+// Representation without its own BaseURL cannot steal the next one.
+const re = /<Representation\b([^>]*)>(?:(?!<\/?Representation)[\s\S])*?<BaseURL>([^<]+)<\/BaseURL>/g;
     let m;
     while ((m = re.exec(mpdText)) !== null) {
       const attrs = m[1];
@@ -74,7 +76,7 @@ export function parseMpd(mpdText, mpdUrl) {
       };
       const before = mpdText.slice(0, m.index);
       const lastAdapt = before.lastIndexOf("<AdaptationSet");
-      const adaptAttrs = lastAdapt === -1 ? "" : mpdText.slice(lastAdapt, lastAdapt + 240);
+      const adaptAttrs = lastAdapt === -1 ? "" : mpdText.slice(lastAdapt, lastAdapt + 480);
       const type = /contentType="audio"/.test(adaptAttrs)
         ? "audio"
         : /contentType="video"/.test(adaptAttrs)

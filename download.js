@@ -191,7 +191,7 @@
     if (msg.error) {
       toast(String(msg.error), true, 6000);
     } else if (msg.label === "done") {
-      toast("\u2713 saved Reddit/" + (msg.filename || ""), false, 6000);
+      toast("\u2713 saved Reddit/" + (msg.filename || "") + (msg.hasAudio === false ? " (no audio track)" : ""), false, 6000);
     } else if (msg.label) {
       toast(msg.label + (Number.isFinite(msg.pct) ? " " + Math.round(msg.pct) + "%" : ""), false, 0);
     }
