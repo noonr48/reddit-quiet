@@ -1,10 +1,11 @@
 {
   "manifest_version": 3,
   "name": "Reddit Quiet",
-  "version": "1.4.1",
-  "description": "Hide Reddit's notification bell, tab counter, ads, thread comments, votes & comment counts, and YouTube Shorts. Zero tracking.",
-  "permissions": ["storage"],
-  "host_permissions": [],
+  "version": "1.5.0",
+  "description": "Hide Reddit's engagement UI, and download Reddit videos with sound in one click. Zero tracking.",
+  "permissions": ["storage", "downloads", "offscreen"],
+  "host_permissions": ["https://v.redd.it/*"],
+  "background": { "service_worker": "background.js", "type": "module" },
   "action": {
     "default_popup": "popup/popup.html",
     "default_title": "Reddit Quiet — click to toggle",
@@ -20,6 +21,12 @@
       "css": ["content.css"],
       "js": ["content.js"],
       "run_at": "document_start",
+      "all_frames": false
+    },
+    {
+      "matches": ["*://*.reddit.com/*"],
+      "js": ["download.js"],
+      "run_at": "document_idle",
       "all_frames": false
     }
   ],

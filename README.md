@@ -1,10 +1,10 @@
 # Reddit Quiet
 
-> A tiny Chrome extension that hides Reddit's notification bell, red unread badge, and `(N)` tab counter. Plus toggleable Chat, Inbox, Create Post, ad posts, thread comments, Recent Posts, vote scores, and comment-count hiding — and YouTube Shorts. Zero tracking, zero data.
+> A tiny Chrome extension that hides Reddit's notification bell, red unread badge, and `(N)` tab counter. Plus toggleable Chat, Inbox, Create Post, ad posts, thread comments, Recent Posts, vote scores, and comment-count hiding — and YouTube Shorts — plus a one-click **video downloader** that saves Reddit videos with sound as a single MP4. Zero tracking, zero data.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 ![Manifest](https://img.shields.io/badge/Manifest-V3-blue)
-![Permissions](https://img.shields.io/badge/Permissions-storage%20only-green)
+![Permissions](https://img.shields.io/badge/Permissions-storage%20%2B%20downloads%20%2B%20offscreen-green)
 
 ## Why
 
@@ -28,12 +28,39 @@ Twelve toggleable options in a clean popup:
 | **Recent posts sidebar** | ON | The "Recent Posts" rail on Home (`<recent-posts>`) |
 | **Vote scores** | ON | The score between the vote arrows (arrows stay — voting works) |
 | **Comment counts** | ON | "N comments" links under posts |
+| **Video download button** | ON | Floating pill on video posts — saves MP4 **with sound** (see below) |
 | YouTube Shorts | ON | Shorts shelves, sidebar link & search results |
 | YouTube bell | OFF | The 🔔 icon in YouTube's top bar |
 
 Settings sync across your devices via Chrome's built-in sync. Changes apply instantly to any open Reddit or YouTube tab — toggling a feature off restores the elements it hid without a reload.
 
 The three **Feed & threads** toggles plus **Vote scores** / **Comment counts** work by exact custom-element tag match, vote-button attributes, or full-text match — stable against Reddit's randomized CSS-class churn. Comment hiding is scoped to thread pages — profile comment history (`<shreddit-profile-comment>`) and the generic composer (`<shreddit-composer>`, reused by the /submit post form) are deliberately untouched. Vote *buttons* stay visible so voting still works; only the numbers vanish.
+
+
+## Download Reddit videos (v1.5.0)
+
+Hover a video post in the feed (or open one) and a small **Video** pill
+appears in the bottom-right corner. One click and the video lands in your
+`Downloads/Reddit/` folder as a single `.mp4` — video and audio combined.
+
+How it works, all inside your browser:
+
+1. The post’s own JSON is fetched from `reddit.com` in the page you are
+   already on (same first-party context — no extra identity is exposed).
+2. The DASH manifest on Reddit’s video CDN (`v.redd.it`) is read to find
+   the best video rendition and the audio track (Reddit serves them as two
+   separate streams — that’s why most downloaders give silent videos).
+3. Both streams are copied 1:1 (no re-encoding, lossless) into one MP4
+   inside an offscreen document, using the vendored
+   [mediabunny](https://mediabunny.dev) library (MPL-2.0, see
+   `vendor/mediabunny.LICENSE`).
+4. The file is saved via Chrome’s normal download machinery — same place
+   your other downloads go.
+
+GIF-style posts (no audio track) download video-only. Crossposts resolve to
+the original host post. The only network requests the extension ever makes
+are to `reddit.com` (the post’s own JSON, in the page context) and
+`v.redd.it` (the streams) — nothing is sent anywhere else.
 
 ## Install (load unpacked)
 

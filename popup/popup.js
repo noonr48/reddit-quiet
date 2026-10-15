@@ -18,6 +18,8 @@
     hideCommentCount: true,
     hideYtShorts: true,
     hideYtNotifications: false,
+    // Downloads
+    videoDownload: true,
   };
 
   const checkboxes = document.querySelectorAll('input[type="checkbox"][data-setting]');

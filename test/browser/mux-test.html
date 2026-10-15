@@ -1,0 +1,34 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8" /><title>rq-mux-harness</title></head>
+<body>
+<p id="boot">running</p>
+<script type="module">
+import { parseMpd } from "../../src/resolve.mjs";
+import { remuxVideoAudio } from "../../src/remux-core.mjs";
+const q = new URLSearchParams(location.search);
+const log = (t) => {
+  const d = document.createElement("pre");
+  d.id = "rq-out";
+  d.textContent = t;
+  document.body.appendChild(d);
+  const boot = document.getElementById("boot");
+  if (boot) boot.remove();
+};
+try {
+  const mpd = await (await fetch(q.get("mpd") || "/test/fixtures/playlist.mpd")).text();
+  const picked = parseMpd(mpd, "https://v.redd.it/x/DASHPlaylist.mpd");
+  if (!picked.video || picked.video.url.indexOf("CMAF_720") === -1 || !picked.audio) {
+    throw new Error("parseMpd(DOM) " + JSON.stringify(picked));
+  }
+  const v = await (await fetch(q.get("video"))).blob();
+  const a = q.get("audio") ? await (await fetch(q.get("audio"))).blob() : null;
+  const out = await remuxVideoAudio(v, a, () => {});
+  await fetch("/save", { method: "POST", body: out });
+  log("RQ-HARNESS OK bytes=" + out.size);
+} catch (e) {
+  log("RQ-HARNESS FAIL " + ((e && e.message) || e));
+}
+</script>
+</body>
+</html>
